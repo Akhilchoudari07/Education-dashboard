@@ -1,0 +1,102 @@
+import dash
+from dash import dcc, html, Input, Output
+import pandas as pd
+import plotly.express as px
+
+# Load the dataset
+file_path = "airline_delay.csv"
+data = pd.read_csv(file_path)
+
+# Data preprocessing
+data['Flight_date'] = pd.to_datetime(data['Flight_date'])
+data['Delay_Duration'] = data['Delay_Duration'].str.replace(' mins', '').astype(float)
+
+# Initialize Dash app
+app = dash.Dash(__name__)
+
+# App layout
+app.layout = html.Div([
+    html.H1("Airline Delay Dashboard", style={'textAlign': 'center'}),
+    
+    # Dropdown for airline selection
+    html.Div([
+        html.Label("Select Airline:"),
+        dcc.Dropdown(
+            id='airline-dropdown',
+            options=[{'label': airline, 'value': airline} for airline in data['Airline'].unique()],
+            value=data['Airline'].unique()[0],
+            clearable=False
+        )
+    ], style={'width': '30%', 'display': 'inline-block'}),
+    
+    # Dropdown for weather selection
+    html.Div([
+        html.Label("Select Weather Condition:"),
+        dcc.Dropdown(
+            id='weather-dropdown',
+            options=[{'label': weather, 'value': weather} for weather in data['Weather'].unique()],
+            value=data['Weather'].unique()[0],
+            clearable=False
+        )
+    ], style={'width': '30%', 'display': 'inline-block', 'marginLeft': '2%'}),
+    
+    # Graphs
+    html.Div([
+        dcc.Graph(id='average-delay-graph'),
+        dcc.Graph(id='weather-impact-graph'),
+        dcc.Graph(id='delay-trends-graph')
+    ])
+])
+
+# Callbacks for interactive plots
+@app.callback(
+    Output('average-delay-graph', 'figure'),
+    [Input('airline-dropdown', 'value')]
+)
+def update_average_delay(selected_airline):
+    filtered_data = data[data['Airline'] == selected_airline]
+    fig = px.bar(
+        filtered_data,
+        y='Day_of_Week',
+        x='Delay_Duration',
+        color='Delay_status',
+        title=f"Average Delay by Day for {selected_airline}",
+        labels={'Delay_Duration': 'Average Delay (mins)', 'Day_of_Week': 'Day of the Week'}
+    )
+    return fig
+
+@app.callback(
+    Output('weather-impact-graph', 'figure'),
+    [Input('weather-dropdown', 'value')]
+)
+def update_weather_impact(selected_weather):
+    filtered_data = data[data['Weather'] == selected_weather]
+    fig = px.box(
+        filtered_data,
+        x='Airline',
+        y='Delay_Duration',
+        color='Delay_status',
+        title=f"Weather Impact: {selected_weather}",
+        labels={'Delay_Duration': 'Delay Duration (mins)', 'Airline': 'Airline'}
+    )
+    return fig
+
+@app.callback(
+    Output('delay-trends-graph', 'figure'),
+    [Input('airline-dropdown', 'value')]
+)
+def update_delay_trends(selected_airline):
+    filtered_data = data[data['Airline'] == selected_airline]
+    fig = px.line(
+        filtered_data,
+        x='Flight_date',
+        y='Delay_Duration',
+        color='Weather',
+        title=f"Delay Trends Over Time for {selected_airline}",
+        labels={'Flight_date': 'Date', 'Delay_Duration': 'Delay Duration (mins)'}
+    )
+    return fig
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)
